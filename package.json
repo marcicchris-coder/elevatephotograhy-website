@@ -1,0 +1,12 @@
+{
+  "name": "elevatephotography-website",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Photography website with Aryeo-powered portfolio and order status API",
+  "scripts": {
+    "start": "node api/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

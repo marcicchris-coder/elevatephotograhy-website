@@ -26,8 +26,8 @@ function loadEnvFromFile() {
 
 loadEnvFromFile();
 
-const PORT = Number(process.env.PORT || 8787);
-const HOST = process.env.HOST || "127.0.0.1";
+const PORT = Number(process.env.PORT || 8788);
+const HOST = process.env.HOST || "0.0.0.0";
 const API_BASE = (process.env.ARYEO_API_BASE || "https://api.aryeo.com/v1").replace(/\/$/, "");
 const API_TOKEN = process.env.ARYEO_API_TOKEN || "";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";

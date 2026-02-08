@@ -1,0 +1,6 @@
+.DS_Store
+.pids/
+logs/
+
+# Local secrets
+api/.env

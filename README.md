@@ -18,7 +18,7 @@
 Run both services:
 
 ```bash
-cd /Users/chris/Photography-Website
+cd /Users/chris/Documents/elevatephotograhy-website
 cp api/.env.example api/.env
 ```
 
@@ -32,28 +32,28 @@ WEBHOOK_SECRET=your_random_secret_here
 Quick start (recommended):
 
 ```bash
-cd /Users/chris/Photography-Website
+cd /Users/chris/Documents/elevatephotograhy-website
 ./scripts/start-local.sh
 ```
 
 Quick stop:
 
 ```bash
-cd /Users/chris/Photography-Website
+cd /Users/chris/Documents/elevatephotograhy-website
 ./scripts/stop-local.sh
 ```
 
 Manual start API server:
 
 ```bash
-cd /Users/chris/Photography-Website
+cd /Users/chris/Documents/elevatephotograhy-website
 node api/server.js
 ```
 
 Manual start website (second terminal):
 
 ```bash
-cd /Users/chris/Photography-Website
+cd /Users/chris/Documents/elevatephotograhy-website
 python3 -m http.server 8000
 ```
 
@@ -102,3 +102,27 @@ Most hosting services accept static files. Upload these items from the project r
 - `script.js`
 - `api/` (if deploying the API with your site host)
 - `images/`
+
+## Deploy API for live portfolio (Render)
+
+1. Create a new Render **Web Service** from your GitHub repo.
+2. Set these values:
+   - Build Command: *(leave blank)*
+   - Start Command: `node api/server.js`
+3. Add environment variables:
+   - `ARYEO_API_TOKEN`
+   - `WEBHOOK_SECRET`
+   - `HOST=0.0.0.0`
+4. Deploy and copy your Render URL, for example: `https://elevate-api.onrender.com`
+5. Update `site-config.js`:
+
+```js
+window.SITE_LINKS = {
+  api_base: "https://elevate-api.onrender.com",
+  order_page: "order.html",
+  aryeo_order_form: "https://elevate-real-estate-photography.aryeo.com/order-forms/01991634-25ad-73f1-bf2e-194a7cbb4ff8",
+  aryeo_portal: "https://elevate-real-estate-photography.aryeo.com/portal"
+};
+```
+
+6. Push to `main` to publish updated frontend on GitHub Pages.
