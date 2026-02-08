@@ -6,6 +6,7 @@ const { URL } = require("url");
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_DIR = path.join(ROOT_DIR, "data");
 const PIPELINE_FILE = path.join(DATA_DIR, "lead-pipeline.jsonl");
+const SHOOTS_CACHE_FILE = path.join(DATA_DIR, "shoots-cache.json");
 const ENV_FILE = path.join(__dirname, ".env");
 
 function loadEnvFromFile() {
@@ -36,6 +37,16 @@ const ARYEO_ORDER_INCLUDES = (process.env.ARYEO_ORDER_INCLUDES || "listing,appoi
   .map((value) => value.trim())
   .filter(Boolean)
   .join(",");
+const SHOOTS_CACHE_TTL_SECONDS = Math.max(60, Number(process.env.SHOOTS_CACHE_TTL_SECONDS || 21600));
+const SHOOTS_CACHE_FETCH_PAGE_SIZE = Math.max(1, Math.min(100, Number(process.env.SHOOTS_CACHE_FETCH_PAGE_SIZE || 100)));
+const SHOOTS_CACHE_MAX_PAGES = Math.max(1, Math.min(10, Number(process.env.SHOOTS_CACHE_MAX_PAGES || 5)));
+
+let shootsCache = {
+  updated_at: null,
+  shoots: [],
+  source_count: 0
+};
+let shootsRefreshPromise = null;
 
 function writeJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -279,16 +290,44 @@ function readPipelineEvents(limit = 200) {
   }).reverse();
 }
 
-async function handleShoots(req, res, url) {
-  const limit = Number(url.searchParams.get("limit") || 24);
-  const pageSize = Math.max(1, Math.min(limit, 100));
-  const maxPages = 5;
+function loadShootsCache() {
+  if (!fs.existsSync(SHOOTS_CACHE_FILE)) return;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(SHOOTS_CACHE_FILE, "utf8"));
+    if (!parsed || !Array.isArray(parsed.shoots)) return;
+    shootsCache = {
+      updated_at: parsed.updated_at || null,
+      shoots: parsed.shoots,
+      source_count: Number(parsed.source_count || parsed.shoots.length || 0)
+    };
+  } catch {
+    // Ignore corrupted cache; a fresh pull will rebuild it.
+  }
+}
+
+function saveShootsCache(nextCache) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(SHOOTS_CACHE_FILE, JSON.stringify(nextCache, null, 2), "utf8");
+}
+
+function shootsCacheAgeMs() {
+  if (!shootsCache.updated_at) return Number.POSITIVE_INFINITY;
+  const updatedAtMs = new Date(shootsCache.updated_at).getTime();
+  if (Number.isNaN(updatedAtMs)) return Number.POSITIVE_INFINITY;
+  return Date.now() - updatedAtMs;
+}
+
+function isShootsCacheFresh() {
+  return shootsCacheAgeMs() <= SHOOTS_CACHE_TTL_SECONDS * 1000;
+}
+
+async function fetchLatestShoots() {
   const ordersById = new Map();
 
-  for (let page = 1; page <= maxPages; page += 1) {
+  for (let page = 1; page <= SHOOTS_CACHE_MAX_PAGES; page += 1) {
     const payload = await fetchAryeoWithIncludeFallback("/orders", {
       page,
-      page_size: pageSize,
+      page_size: SHOOTS_CACHE_FETCH_PAGE_SIZE,
       include: ARYEO_ORDER_INCLUDES
     }, ["listing,appointments,items", "listing,appointments"]);
 
@@ -300,14 +339,59 @@ async function handleShoots(req, res, url) {
       ordersById.set(normalized.id, normalized);
     });
 
-    if (items.length < pageSize) break;
+    if (items.length < SHOOTS_CACHE_FETCH_PAGE_SIZE) break;
   }
 
-  const shoots = [...ordersById.values()]
-    .sort((a, b) => getShootSortTimestamp(b) - getShootSortTimestamp(a))
-    .slice(0, pageSize);
+  const sortedShoots = [...ordersById.values()]
+    .sort((a, b) => getShootSortTimestamp(b) - getShootSortTimestamp(a));
 
-  writeJson(res, 200, { shoots, source_count: shoots.length });
+  return {
+    updated_at: new Date().toISOString(),
+    shoots: sortedShoots,
+    source_count: sortedShoots.length
+  };
+}
+
+function refreshShootsCacheInBackground() {
+  if (shootsRefreshPromise) return shootsRefreshPromise;
+
+  shootsRefreshPromise = (async () => {
+    const nextCache = await fetchLatestShoots();
+    shootsCache = nextCache;
+    saveShootsCache(nextCache);
+  })()
+    .catch((error) => {
+      console.error(`Shoots cache refresh failed: ${error.message || error}`);
+    })
+    .finally(() => {
+      shootsRefreshPromise = null;
+    });
+
+  return shootsRefreshPromise;
+}
+
+async function handleShoots(req, res, url) {
+  const limit = Number(url.searchParams.get("limit") || 24);
+  const pageSize = Math.max(1, Math.min(limit, 100));
+
+  if (!shootsCache.shoots.length) {
+    await refreshShootsCacheInBackground();
+  } else if (!isShootsCacheFresh()) {
+    refreshShootsCacheInBackground();
+  }
+
+  const shoots = shootsCache.shoots.slice(0, pageSize);
+
+  writeJson(res, 200, {
+    shoots,
+    source_count: shootsCache.source_count || shoots.length,
+    cache: {
+      updated_at: shootsCache.updated_at,
+      fresh: isShootsCacheFresh(),
+      refreshing: Boolean(shootsRefreshPromise),
+      ttl_seconds: SHOOTS_CACHE_TTL_SECONDS
+    }
+  });
 }
 
 async function handleOrderStatus(req, res, url) {
@@ -426,9 +510,14 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+loadShootsCache();
+
 server.listen(PORT, HOST, () => {
   console.log(`Aryeo integration API running on http://${HOST}:${PORT}`);
   if (!API_TOKEN) {
     console.log("Warning: ARYEO_API_TOKEN is not set. API routes that call Aryeo will fail until token is provided.");
+  }
+  if (shootsCache.updated_at) {
+    console.log(`Loaded shoots cache from disk (${shootsCache.shoots.length} records, updated ${shootsCache.updated_at}).`);
   }
 });

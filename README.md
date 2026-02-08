@@ -27,6 +27,8 @@ Edit `api/.env` and set:
 ```bash
 ARYEO_API_TOKEN=your_real_token_here
 WEBHOOK_SECRET=your_random_secret_here
+# Optional cache tuning for faster portfolio loads
+SHOOTS_CACHE_TTL_SECONDS=21600
 ```
 
 Quick start (recommended):
@@ -77,6 +79,12 @@ Then open `http://localhost:8000`.
 1. Portfolio auto-loads Aryeo shoots from `GET /api/shoots`.
 2. Order page provides live status lookup via `GET /api/order-status?order_id=...`.
 3. Lead pipeline captures webhook events from `POST /api/webhooks/aryeo` and displays recent entries from `GET /api/pipeline/leads`.
+
+## Portfolio performance cache
+
+- `/api/shoots` now caches Aryeo results on the backend and serves from cache for fast repeat loads.
+- Default refresh interval is every 6 hours (`SHOOTS_CACHE_TTL_SECONDS=21600`).
+- When cache is stale, the API serves cached data immediately and refreshes in the background.
 
 ## Aryeo webhook target
 
