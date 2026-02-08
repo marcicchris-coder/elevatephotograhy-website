@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Order page for Elevate Real Estate Photography." />
+  <title>Order Services | Elevate Real Estate Photography</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="background-glow" aria-hidden="true"></div>
+
+  <header class="site-header" id="top">
+    <a class="logo" href="index.html" aria-label="Elevate Real Estate Photography home">
+      <img src="images/logo-secondary.png" alt="Elevate Real Estate Photography Interior Exterior Drone banner logo" />
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="index.html">Home</a>
+      <a href="portfolio.html">Portfolio</a>
+      <a href="order.html">Order</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+    <a class="button book-now" href="#" data-link-key="order_page">Book Now</a>
+  </header>
+
+  <main class="order-page">
+    <section class="order-hero">
+      <p class="eyebrow">Book Services</p>
+      <h1>Order Real Estate Media</h1>
+      <p class="hero-copy">Place your order directly from this page. If the embedded form does not load, use the direct order link below.</p>
+      <div class="hero-actions">
+        <a class="button" href="#" data-link-key="aryeo_order_form">Open Order Form in New Tab</a>
+        <a class="button ghost" href="#" data-link-key="aryeo_portal">Client Portal</a>
+      </div>
+    </section>
+
+    <section class="order-embed-wrap" aria-label="Order form">
+      <iframe class="order-embed" title="Order Form" data-embed-key="aryeo_order_form" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </section>
+
+    <section class="status-wrap" aria-label="Order status lookup">
+      <div class="section-heading">
+        <h2>Check Order Status</h2>
+        <p>Enter an order ID to view live status.</p>
+      </div>
+      <form id="orderStatusForm" class="status-form">
+        <label for="orderIdInput">Order ID</label>
+        <div class="status-row">
+          <input id="orderIdInput" name="order_id" type="text" placeholder="e.g. 01991634-25ad-73f1-bf2e-194a7cbb4ff8" required />
+          <button type="submit" class="button">Lookup</button>
+        </div>
+      </form>
+      <p id="orderStatusMessage" class="hero-copy"></p>
+    </section>
+
+    <section class="status-wrap" aria-label="Lead pipeline feed">
+      <div class="section-heading">
+        <h2>Lead Pipeline Feed</h2>
+        <p>Recent webhook events captured by your local integration.</p>
+      </div>
+      <div id="leadPipelineList" class="pipeline-list"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-brand">
+      <img src="images/logo-secondary.png" alt="Elevate Real Estate Interior Exterior Drone logo" />
+      <p>© <span id="year"></span> Elevate Real Estate Photography. All rights reserved.</p>
+      <p><a href="#" data-link-key="aryeo_portal">Client Delivery Portal</a></p>
+    </div>
+  </footer>
+
+  <script src="site-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
