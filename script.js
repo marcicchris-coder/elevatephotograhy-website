@@ -222,7 +222,7 @@ if (orderStatusForm && orderStatusMessage) {
       const payload = await response.json();
 
       if (!response.ok) {
-        orderStatusMessage.textContent = payload.error || "Unable to look up that order ID.";
+        orderStatusMessage.textContent = payload.error || "Unable to look up that order ID or address.";
         return;
       }
 

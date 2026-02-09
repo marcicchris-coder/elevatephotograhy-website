@@ -544,17 +544,132 @@ async function handleShoots(req, res, url) {
   });
 }
 
+function collectOrderIdentifiers(order) {
+  if (!order || typeof order !== "object") return [];
+
+  const candidates = [
+    order.id,
+    order.uuid,
+    order.order_id,
+    order.order_number,
+    order.number,
+    order.display_id,
+    order.external_id,
+    order.reference,
+    order.short_id,
+    order.legacy_id,
+    order.attributes?.id,
+    order.attributes?.uuid,
+    order.attributes?.order_id,
+    order.attributes?.order_number,
+    order.attributes?.number,
+    order.attributes?.display_id,
+    order.attributes?.external_id,
+    order.attributes?.reference
+  ];
+
+  const unique = new Set();
+  candidates.forEach((value) => {
+    if (value === undefined || value === null) return;
+    const normalized = String(value).trim();
+    if (!normalized) return;
+    unique.add(normalized);
+  });
+
+  return [...unique];
+}
+
+function toLooseToken(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+async function findOrderByIdentifier(orderIdentifier) {
+  const needle = String(orderIdentifier || "").trim();
+  if (!needle) return null;
+
+  const needleLower = needle.toLowerCase();
+  const needleLoose = toLooseToken(needle);
+
+  for (let page = 1; page <= SHOOTS_CACHE_MAX_PAGES; page += 1) {
+    const payload = await fetchAryeoWithIncludeFallback("/orders", {
+      page,
+      page_size: SHOOTS_CACHE_FETCH_PAGE_SIZE,
+      include: "listing,appointments"
+    }, ["listing,appointments", "listing"]);
+
+    const items = payload?.data || payload?.orders || payload?.results || [];
+    if (!items.length) break;
+
+    for (const order of items) {
+      const identifiers = collectOrderIdentifiers(order);
+      for (const candidate of identifiers) {
+        const candidateLower = candidate.toLowerCase();
+        if (candidateLower === needleLower) return order;
+        if (needleLoose && toLooseToken(candidateLower) === needleLoose) return order;
+      }
+    }
+
+    if (items.length < SHOOTS_CACHE_FETCH_PAGE_SIZE) break;
+  }
+
+  return null;
+}
+
+function findShootByAddressQuery(addressQuery) {
+  const needle = String(addressQuery || "").trim().toLowerCase();
+  if (!needle) return null;
+
+  const matches = shootsCache.shoots
+    .filter((shoot) => String(shoot?.address || "").toLowerCase().includes(needle))
+    .sort((a, b) => getShootSortTimestamp(b) - getShootSortTimestamp(a));
+
+  return matches[0] || null;
+}
+
 async function handleOrderStatus(req, res, url) {
-  const orderId = url.searchParams.get("order_id");
-  if (!orderId) {
+  const lookupValue = String(url.searchParams.get("order_id") || "").trim();
+  if (!lookupValue) {
     writeJson(res, 400, { error: "Missing required query param: order_id" });
     return;
   }
 
-  const payload = await fetchAryeoWithIncludeFallback(`/orders/${encodeURIComponent(orderId)}`, {
-    include: "listing,appointments"
-  }, ["listing,appointments", "listing"]);
-  const order = payload?.data || payload?.order || payload;
+  let order;
+  let shootFromAddress = null;
+  try {
+    const payload = await fetchAryeoWithIncludeFallback(`/orders/${encodeURIComponent(lookupValue)}`, {
+      include: "listing,appointments"
+    }, ["listing,appointments", "listing"]);
+    order = payload?.data || payload?.order || payload;
+  } catch (error) {
+    const message = String(error?.message || "");
+    const notFound = message.includes("404");
+    if (!notFound) throw error;
+
+    order = await findOrderByIdentifier(lookupValue);
+    if (!order) {
+      if (!shootsCache.shoots.length) {
+        await refreshShootsCacheInBackground();
+      }
+      shootFromAddress = findShootByAddressQuery(lookupValue);
+    }
+
+    if (!order) {
+      if (shootFromAddress) {
+        writeJson(res, 200, {
+          order_id: shootFromAddress.id,
+          status: shootFromAddress.status,
+          address: shootFromAddress.address,
+          scheduled_at: shootFromAddress.scheduled_at
+        });
+        return;
+      }
+      writeJson(res, 404, {
+        error: `No recent order was found for "${lookupValue}". Try the full order UUID or a more specific property address.`
+      });
+      return;
+    }
+  }
+
   const shoot = normalizeShoot(order);
 
   writeJson(res, 200, {
