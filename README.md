@@ -15,7 +15,7 @@
 
 ## Run locally
 
-Run both services:
+Run once:
 
 ```bash
 cd /Users/chris/Documents/elevatephotograhy-website
@@ -31,35 +31,14 @@ WEBHOOK_SECRET=your_random_secret_here
 SHOOTS_CACHE_TTL_SECONDS=21600
 ```
 
-Quick start (recommended):
-
-```bash
-cd /Users/chris/Documents/elevatephotograhy-website
-./scripts/start-local.sh
-```
-
-Quick stop:
-
-```bash
-cd /Users/chris/Documents/elevatephotograhy-website
-./scripts/stop-local.sh
-```
-
-Manual start API server:
+Manual start (serves website + API from one server):
 
 ```bash
 cd /Users/chris/Documents/elevatephotograhy-website
 node api/server.js
 ```
 
-Manual start website (second terminal):
-
-```bash
-cd /Users/chris/Documents/elevatephotograhy-website
-python3 -m http.server 8000
-```
-
-Then open `http://localhost:8000`.
+Then open `http://127.0.0.1:8788`.
 
 ## Customize for your brand
 
@@ -71,7 +50,7 @@ Then open `http://localhost:8000`.
 
 1. Open `site-config.js`.
 2. Keep `order_page` set to `order.html`.
-3. Set `api_base` to your API URL (local default: `http://127.0.0.1:8788`).
+3. Set `api_base` to `""` for same-origin requests when site and API run on one domain.
 4. Set `aryeo_order_form` and `aryeo_portal`.
 
 ## Features now live
@@ -100,37 +79,14 @@ Include header:
 
 `x-webhook-secret: <WEBHOOK_SECRET>`
 
-## Upload to hosting
+## Deploy to Railway (single host)
 
-Most hosting services accept static files. Upload these items from the project root:
-
-- `index.html`
-- `styles.css`
-- `site-config.js`
-- `script.js`
-- `api/` (if deploying the API with your site host)
-- `images/`
-
-## Deploy API for live portfolio (Render)
-
-1. Create a new Render **Web Service** from your GitHub repo.
-2. Set these values:
-   - Build Command: *(leave blank)*
-   - Start Command: `node api/server.js`
-3. Add environment variables:
+1. Create a Railway project from this GitHub repo.
+2. Start command: `npm start`
+3. Add service variables:
    - `ARYEO_API_TOKEN`
    - `WEBHOOK_SECRET`
-   - `HOST=0.0.0.0`
-4. Deploy and copy your Render URL, for example: `https://elevate-api.onrender.com`
-5. Update `site-config.js`:
-
-```js
-window.SITE_LINKS = {
-  api_base: "https://elevate-api.onrender.com",
-  order_page: "order.html",
-  aryeo_order_form: "https://elevate-real-estate-photography.aryeo.com/order-forms/01991634-25ad-73f1-bf2e-194a7cbb4ff8",
-  aryeo_portal: "https://elevate-real-estate-photography.aryeo.com/portal"
-};
-```
-
-6. Push to `main` to publish updated frontend on GitHub Pages.
+   - `ARYEO_API_BASE=https://api.aryeo.com/v1`
+   - `SHOOTS_CACHE_TTL_SECONDS=43200`
+4. Generate a public Railway domain and then attach your custom domain.
+5. Point DNS `www` CNAME to Railway's provided target.

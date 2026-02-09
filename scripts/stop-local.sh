@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PID_DIR="$ROOT_DIR/.pids"
 API_PID_FILE="$PID_DIR/api.pid"
-WEB_PID_FILE="$PID_DIR/web.pid"
 
 stop_pid_file() {
   local pid_file="$1"
@@ -34,4 +33,3 @@ stop_pid_file() {
 }
 
 stop_pid_file "$API_PID_FILE" "API server"
-stop_pid_file "$WEB_PID_FILE" "Web server"

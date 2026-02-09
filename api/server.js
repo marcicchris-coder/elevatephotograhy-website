@@ -8,6 +8,22 @@ const DATA_DIR = path.join(ROOT_DIR, "data");
 const PIPELINE_FILE = path.join(DATA_DIR, "lead-pipeline.jsonl");
 const SHOOTS_CACHE_FILE = path.join(DATA_DIR, "shoots-cache.json");
 const ENV_FILE = path.join(__dirname, ".env");
+const STATIC_MIME_TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".pdf": "application/pdf",
+  ".txt": "text/plain; charset=utf-8"
+};
+const STATIC_BLOCKED_PREFIXES = ["/api", "/data", "/logs", "/scripts", "/.git"];
 
 function loadEnvFromFile() {
   if (!fs.existsSync(ENV_FILE)) return;
@@ -56,6 +72,11 @@ function writeJson(res, statusCode, payload) {
     "Access-Control-Allow-Headers": "Content-Type,x-webhook-secret"
   });
   res.end(JSON.stringify(payload));
+}
+
+function writeText(res, statusCode, body, contentType = "text/plain; charset=utf-8") {
+  res.writeHead(statusCode, { "Content-Type": contentType });
+  res.end(body);
 }
 
 function readBody(req) {
@@ -371,6 +392,52 @@ function readPipelineEvents(limit = 200) {
   }).reverse();
 }
 
+function isBlockedStaticPath(pathname) {
+  return STATIC_BLOCKED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function resolveStaticPath(pathname) {
+  if (!pathname || pathname === "/") return path.join(ROOT_DIR, "index.html");
+  if (isBlockedStaticPath(pathname)) return null;
+
+  const decodedPath = decodeURIComponent(pathname);
+  const normalized = path.posix.normalize(decodedPath);
+  if (!normalized.startsWith("/")) return null;
+
+  const filePath = path.resolve(ROOT_DIR, `.${normalized}`);
+  if (!filePath.startsWith(ROOT_DIR + path.sep) && filePath !== ROOT_DIR) return null;
+  return filePath;
+}
+
+function serveStatic(req, res, pathname) {
+  if (req.method !== "GET" && req.method !== "HEAD") return false;
+
+  const filePath = resolveStaticPath(pathname);
+  if (!filePath) return false;
+  if (!fs.existsSync(filePath)) return false;
+
+  const stat = fs.statSync(filePath);
+  const finalPath = stat.isDirectory() ? path.join(filePath, "index.html") : filePath;
+  if (!fs.existsSync(finalPath) || !fs.statSync(finalPath).isFile()) return false;
+
+  const ext = path.extname(finalPath).toLowerCase();
+  const contentType = STATIC_MIME_TYPES[ext] || "application/octet-stream";
+  const cacheControl = ext === ".html" ? "no-cache" : "public, max-age=3600";
+
+  res.writeHead(200, {
+    "Content-Type": contentType,
+    "Cache-Control": cacheControl
+  });
+
+  if (req.method === "HEAD") {
+    res.end();
+    return true;
+  }
+
+  fs.createReadStream(finalPath).pipe(res);
+  return true;
+}
+
 function loadShootsCache() {
   if (!fs.existsSync(SHOOTS_CACHE_FILE)) return;
   try {
@@ -584,6 +651,13 @@ const server = http.createServer(async (req, res) => {
       const limit = Number(url.searchParams.get("limit") || 200);
       const events = readPipelineEvents(limit);
       writeJson(res, 200, { events, count: events.length });
+      return;
+    }
+
+    if (serveStatic(req, res, url.pathname)) return;
+
+    if (req.method === "GET" || req.method === "HEAD") {
+      writeText(res, 404, "Not found");
       return;
     }
 

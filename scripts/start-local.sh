@@ -5,7 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PID_DIR="$ROOT_DIR/.pids"
 LOG_DIR="$ROOT_DIR/logs"
 API_PID_FILE="$PID_DIR/api.pid"
-WEB_PID_FILE="$PID_DIR/web.pid"
 API_HOST="${HOST:-127.0.0.1}"
 API_PORT="${PORT:-8788}"
 
@@ -36,27 +35,12 @@ start_api() {
   fi
 }
 
-start_web() {
-  if is_running "$WEB_PID_FILE"; then
-    echo "Web server already running (PID $(cat "$WEB_PID_FILE"))."
-  else
-    (
-      cd "$ROOT_DIR"
-      python3 -m http.server 8000 >> "$LOG_DIR/web.log" 2>&1
-    ) &
-    echo "$!" > "$WEB_PID_FILE"
-    echo "Started web server on http://localhost:8000 (PID $!)."
-  fi
-}
-
 start_api
-start_web
 
 echo ""
-echo "Main site: http://localhost:8000"
-echo "Portfolio: http://localhost:8000/portfolio.html"
-echo "Order: http://localhost:8000/order.html"
+echo "Main site: http://$API_HOST:$API_PORT"
+echo "Portfolio: http://$API_HOST:$API_PORT/portfolio.html"
+echo "Order: http://$API_HOST:$API_PORT/order.html"
 echo ""
 echo "Logs:"
 echo "- $LOG_DIR/api.log"
-echo "- $LOG_DIR/web.log"
