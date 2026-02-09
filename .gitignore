@@ -4,3 +4,7 @@ logs/
 
 # Local secrets
 api/.env
+
+# Local generated API cache/data
+data/shoots-cache.json
+data/lead-pipeline.jsonl

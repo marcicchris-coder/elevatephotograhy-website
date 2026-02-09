@@ -5,8 +5,31 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PID_DIR="$ROOT_DIR/.pids"
 LOG_DIR="$ROOT_DIR/logs"
 API_PID_FILE="$PID_DIR/api.pid"
-API_HOST="${HOST:-127.0.0.1}"
-API_PORT="${PORT:-8788}"
+ENV_FILE="$ROOT_DIR/api/.env"
+
+read_env_value() {
+  local key="$1"
+  local file="$2"
+  if [[ ! -f "$file" ]]; then
+    return 0
+  fi
+
+  awk -F= -v k="$key" '
+    $0 !~ /^[[:space:]]*#/ && $1 ~ /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*$/ {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+      if ($1 == k) {
+        sub(/^[^=]*=/, "", $0)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+        print $0
+      }
+    }
+  ' "$file" | tail -n 1
+}
+
+ENV_HOST="$(read_env_value HOST "$ENV_FILE")"
+ENV_PORT="$(read_env_value PORT "$ENV_FILE")"
+API_HOST="${HOST:-${ENV_HOST:-127.0.0.1}}"
+API_PORT="${PORT:-${ENV_PORT:-8788}}"
 
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
@@ -28,10 +51,20 @@ start_api() {
   else
     (
       cd "$ROOT_DIR"
-      node api/server.js >> "$LOG_DIR/api.log" 2>&1
-    ) &
-    echo "$!" > "$API_PID_FILE"
-    echo "Started API on http://$API_HOST:$API_PORT (PID $!)."
+      HOST="$API_HOST" PORT="$API_PORT" nohup node api/server.js >> "$LOG_DIR/api.log" 2>&1 < /dev/null &
+      echo "$!" > "$API_PID_FILE"
+    )
+
+    local pid
+    pid="$(cat "$API_PID_FILE")"
+    sleep 0.5
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "Started API on http://$API_HOST:$API_PORT (PID $pid)."
+    else
+      echo "API failed to start. Check $LOG_DIR/api.log"
+      rm -f "$API_PID_FILE"
+      return 1
+    fi
   fi
 }
 

@@ -18,7 +18,7 @@
 Run once:
 
 ```bash
-cd /Users/chris/Documents/elevatephotograhy-website
+cd /Users/chris/Domains/elevatephotograhy-website
 cp api/.env.example api/.env
 ```
 
@@ -34,7 +34,7 @@ SHOOTS_CACHE_TTL_SECONDS=21600
 Manual start (serves website + API from one server):
 
 ```bash
-cd /Users/chris/Documents/elevatephotograhy-website
+cd /Users/chris/Domains/elevatephotograhy-website
 node api/server.js
 ```
 
@@ -43,7 +43,7 @@ Then open `http://127.0.0.1:8788`.
 Optional helper scripts:
 
 ```bash
-cd /Users/chris/Documents/elevatephotograhy-website
+cd /Users/chris/Domains/elevatephotograhy-website
 ./scripts/start-local.sh
 ./scripts/stop-local.sh
 ```
